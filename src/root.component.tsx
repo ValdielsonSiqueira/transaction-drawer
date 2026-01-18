@@ -23,7 +23,14 @@ export default function Root(props) {
     <section>
       <TransactionDrawer
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen) {
+            window.dispatchEvent(
+              new CustomEvent("@FIAP/CLOSE_TRANSACTION_DRAWER")
+            );
+          }
+        }}
         title="Nova Transação"
         onConcluir={handleConcluir}
       />
