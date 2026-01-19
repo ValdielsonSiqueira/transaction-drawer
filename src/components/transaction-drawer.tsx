@@ -23,9 +23,8 @@ import {
   MultiSelect,
   type MultiSelectOption,
 } from "@valoro/ui";
-import { IconEye } from "@tabler/icons-react";
-import { CATEGORY_COLORS } from "../lib/category-colors";
 import {
+  CATEGORY_COLORS,
   loadCustomCategories,
   addCustomCategory,
   saveCustomCategories,
@@ -33,7 +32,7 @@ import {
   loadCustomCategoryColors,
   normalizeCategoryValue,
   type CustomCategory,
-} from "../lib/custom-categories";
+} from "@FIAP/util";
 import { AttachmentInput } from "./attachment-input";
 
 const transactionSchema = z.object({
