@@ -11,8 +11,10 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  PopoverSingle,
+  PopoverTriggerSingle,
+  PopoverContentSingle,
 } from "@valoro/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 export interface MultiSelectOption {
   value: string;
@@ -232,8 +234,8 @@ export function MultiSelect({
   const canCreateNew = searchValue.trim() && filteredOptions.length === 0;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <PopoverSingle open={open} onOpenChange={setOpen}>
+      <PopoverTriggerSingle asChild>
         <Button
           type="button"
           variant="outline"
@@ -282,8 +284,8 @@ export function MultiSelect({
           </div>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent
+      </PopoverTriggerSingle>
+      <PopoverContentSingle
         className="w-full p-0 z-[99999]"
         align="start"
         onWheel={(e) => e.stopPropagation()}
@@ -354,7 +356,7 @@ export function MultiSelect({
             )}
           </CommandList>
         </Command>
-      </PopoverContent>
-    </Popover>
+      </PopoverContentSingle>
+    </PopoverSingle>
   );
 }

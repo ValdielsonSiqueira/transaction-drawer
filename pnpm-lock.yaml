@@ -1771,7 +1771,7 @@ packages:
     resolution: {integrity: sha512-sbtvk8wDN+JvEdabmZExoW/HNr1cB7D/j4LT08rMiuikfA7m/JNJg7ATQcgzs34zHnoScDkY0ZRSl29Fkmk36g==}
 
   '@valoro/ui@file:../../Valoro/packages/ui/valoro-ui-0.0.0.tgz':
-    resolution: {integrity: sha512-zwK9vfYmHOjAwxs2o4JRXSmexZTnAfTEkUZXdhWz0jEycfkROGjdjPwHrENnoTuNQDXZ/RXtm49XqVYr7fU0fw==, tarball: file:../../Valoro/packages/ui/valoro-ui-0.0.0.tgz}
+    resolution: {integrity: sha512-s1KlSvjrPdZux7hwMPmE/ZyCR0Y0IB7GwWXrK/x8FFE5oiQ3bkJQQjxNWcOvcAkhimbaP2/d9nMaBNcy81kaYQ==, tarball: file:../../Valoro/packages/ui/valoro-ui-0.0.0.tgz}
     version: 0.0.0
     peerDependencies:
       react: ^18.0.0 || ^19.0.0

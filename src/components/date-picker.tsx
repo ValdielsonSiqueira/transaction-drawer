@@ -1,8 +1,15 @@
 import * as React from "react";
 import { IconCalendar } from "@tabler/icons-react";
 
-import { Button, Label, Calendar } from "@valoro/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import {
+  Button,
+  Label,
+  Calendar,
+  PopoverSingle,
+  PopoverContentSingle,
+  PopoverTriggerSingle,
+} from "@valoro/ui";
+
 import { cn } from "../lib/utils";
 
 interface DatePickerProps {
@@ -57,8 +64,8 @@ export function DatePicker({
           {label}
         </Label>
       )}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
+      <PopoverSingle open={open} onOpenChange={setOpen}>
+        <PopoverTriggerSingle asChild>
           <Button
             type="button"
             variant="outline"
@@ -72,16 +79,16 @@ export function DatePicker({
             <IconCalendar className="mr-2 size-4" />
             {value ? formatDate(value) : <span>{placeholder}</span>}
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 z-[99999]" align="start">
+        </PopoverTriggerSingle>
+        <PopoverContentSingle className="w-auto p-0 z-[99999]" align="start">
           <Calendar
             mode="single"
             selected={value}
             onSelect={handleSelect}
             className="p-3 rounded-md [--cell-size:2.75rem] [&_.rdp-table]:border-spacing-0 [&_.rdp-day]:p-1 overflow-hidden"
           />
-        </PopoverContent>
-      </Popover>
+        </PopoverContentSingle>
+      </PopoverSingle>
     </div>
   );
 }
