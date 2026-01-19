@@ -23,6 +23,7 @@ import {
   MultiSelect,
   type MultiSelectOption,
 } from "@valoro/ui";
+import { IconEye } from "@tabler/icons-react";
 import { CATEGORY_COLORS } from "../lib/category-colors";
 import {
   loadCustomCategories,
@@ -33,6 +34,7 @@ import {
   normalizeCategoryValue,
   type CustomCategory,
 } from "../lib/custom-categories";
+import { AttachmentInput } from "./attachment-input";
 
 const transactionSchema = z.object({
   nome: z.string().min(1, "O nome é obrigatório"),
@@ -63,6 +65,7 @@ interface TransactionDrawerProps {
     tipo: string;
     categoria: string;
     data: Date | undefined;
+    attachment?: File | string | null;
   }) => void;
   initialData?: {
     nome?: string;
@@ -70,6 +73,7 @@ interface TransactionDrawerProps {
     tipo?: string;
     categoria?: string;
     data?: Date | undefined;
+    attachment?: File | string | null;
   };
 }
 
@@ -91,6 +95,7 @@ export function TransactionDrawer({
   const [valor, setValor] = useState<string>("");
   const [tipo, setTipo] = useState<string>("");
   const [categoria, setCategoria] = useState<string>("");
+  const [anexo, setAnexo] = useState<File | string | null>(null);
   const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<
     string[]
   >([]);
@@ -233,6 +238,7 @@ export function TransactionDrawer({
         getCategoriaValueForMultiSelect(categoriaInicial)
       );
       setData(initialData.data);
+      setAnexo(initialData.attachment || null);
       setErrors({});
       setTouched({});
     } else if (open && title === "Nova Transação") {
@@ -242,6 +248,7 @@ export function TransactionDrawer({
       setCategoria("");
       setCategoriasSelecionadas([]);
       setData(undefined);
+      setAnexo(null);
       setErrors({});
       setTouched({});
     }
@@ -297,7 +304,7 @@ export function TransactionDrawer({
     return true;
   };
 
-  const handleConcluirTransacao = () => {
+  const handleConcluirTransacao = async () => {
     if (!validateForm()) {
       return;
     }
@@ -355,6 +362,21 @@ export function TransactionDrawer({
       }
     }
 
+    let anexoProcessed: string | File | null | undefined = anexo;
+
+    if (anexo && anexo instanceof File) {
+      try {
+        anexoProcessed = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(anexo);
+        });
+      } catch (error) {
+        console.error("Erro ao processar anexo:", error);
+      }
+    }
+
     if (onConcluir) {
       onConcluir({
         nome: nome.trim(),
@@ -362,6 +384,7 @@ export function TransactionDrawer({
         tipo,
         categoria: categoriaFinal,
         data,
+        attachment: anexoProcessed,
       });
     }
     handleCancelar();
@@ -376,6 +399,7 @@ export function TransactionDrawer({
       setCategoria("");
       setCategoriasSelecionadas([]);
       setData(undefined);
+      setAnexo(null);
     }
   };
 
@@ -586,6 +610,8 @@ export function TransactionDrawer({
                 </span>
               )}
             </div>
+
+            <AttachmentInput value={anexo} onChange={setAnexo} />
           </form>
         </div>
         <DrawerFooter>

@@ -67,6 +67,7 @@
     "lucide-react": "^0.562.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "regenerator-runtime": "^0.14.1",
     "single-spa": "^5.9.3",
     "single-spa-react": "^6.0.2",
     "tailwind-merge": "^3.4.0",
