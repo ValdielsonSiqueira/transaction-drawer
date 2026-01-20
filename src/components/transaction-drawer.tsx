@@ -54,9 +54,20 @@ const transactionSchema = z.object({
       },
       { message: "O valor deve ser um número maior que zero" }
     ),
-  tipo: z.enum(["receita", "despesa"]),
+  tipo: z.enum(["receita", "despesa"], {
+    errorMap: () => ({ message: "Selecione um tipo" }),
+  }),
   categoria: z.string().min(1, "A categoria é obrigatória"),
-  data: z.date().or(z.string().transform((str) => new Date(str))), // Handle string date from Redux
+  data: z
+    .date({
+      required_error: "A data é obrigatória",
+      invalid_type_error: "Data inválida",
+    })
+    .or(
+      z
+        .string({ required_error: "A data é obrigatória" })
+        .transform((str) => new Date(str))
+    ), // Handle string date from Redux
 });
 
 export function TransactionDrawer() {
