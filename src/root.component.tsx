@@ -1,66 +1,46 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { Provider, useDispatch } from "react-redux";
+import { store } from "./store/store";
 import { TransactionDrawer } from "./components/transaction-drawer";
+import { openDrawer, closeDrawer } from "./store/slices/transactionSlice";
 
-export default function Root(props) {
-  const [open, setOpen] = useState(false);
-  const [initialData, setInitialData] = useState(null);
-  const [editId, setEditId] = useState(null);
+function AppRoot() {
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    const handleOpen = (event) => {
+    const handleOpen = (event: CustomEvent) => {
       const detail = event.detail;
-      setOpen(true);
       if (detail) {
-        setInitialData(detail);
-        if (detail.id) {
-          setEditId(detail.id);
-        }
+        dispatch(openDrawer({ editId: detail.id, initialData: detail }));
       } else {
-        setInitialData(null);
-        setEditId(null);
+        dispatch(openDrawer({}));
       }
     };
-    window.addEventListener("@FIAP/OPEN_TRANSACTION_DRAWER", handleOpen);
-    return () => {
-      window.removeEventListener("@FIAP/OPEN_TRANSACTION_DRAWER", handleOpen);
-    };
-  }, []);
 
-  const handleConcluir = (data) => {
-    if (editId) {
-      window.dispatchEvent(
-        new CustomEvent("@FIAP/TRANSACTION_UPDATED", {
-          detail: { id: editId, ...data },
-        })
+    window.addEventListener(
+      "@FIAP/OPEN_TRANSACTION_DRAWER",
+      handleOpen as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "@FIAP/OPEN_TRANSACTION_DRAWER",
+        handleOpen as EventListener
       );
-    } else {
-      window.dispatchEvent(
-        new CustomEvent("@FIAP/TRANSACTION_CREATED", { detail: data })
-      );
-    }
-    setOpen(false);
-    setInitialData(null);
-    setEditId(null);
-  };
+    };
+  }, [dispatch]);
 
   return (
     <section>
-      <TransactionDrawer
-        open={open}
-        onOpenChange={(isOpen) => {
-          setOpen(isOpen);
-          if (!isOpen) {
-            setInitialData(null);
-            setEditId(null);
-            window.dispatchEvent(
-              new CustomEvent("@FIAP/CLOSE_TRANSACTION_DRAWER")
-            );
-          }
-        }}
-        title={editId ? "Editar Transação" : "Nova Transação"}
-        onConcluir={handleConcluir}
-        initialData={initialData}
-      />
+      <TransactionDrawer />
     </section>
+  );
+}
+
+export default function Root(props) {
+  return (
+    <Provider store={store}>
+      <AppRoot />
+    </Provider>
   );
 }

@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { z } from "zod";
+import { useMemo, useCallback } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { AppDispatch, RootState } from "../store/store";
+import {
+  closeDrawer,
+  setField,
+  saveTransaction,
+  setErrors,
+  setTouched,
+  resetForm,
+} from "../store/slices/transactionSlice";
 import { useIsMobile } from "../hooks/use-mobile";
 import {
   Drawer,
@@ -26,14 +35,12 @@ import {
 import {
   CATEGORY_COLORS,
   loadCustomCategories,
-  addCustomCategory,
-  saveCustomCategories,
-  saveCustomCategoryColor,
   loadCustomCategoryColors,
   normalizeCategoryValue,
-  type CustomCategory,
+  CustomCategory,
 } from "@FIAP/util";
 import { AttachmentInput } from "./attachment-input";
+import { z } from "zod";
 
 const transactionSchema = z.object({
   nome: z.string().min(1, "O nome é obrigatório"),
@@ -49,65 +56,29 @@ const transactionSchema = z.object({
     ),
   tipo: z.enum(["receita", "despesa"]),
   categoria: z.string().min(1, "A categoria é obrigatória"),
-  data: z.date(),
+  data: z.date().or(z.string().transform((str) => new Date(str))), // Handle string date from Redux
 });
 
-type TransactionFormData = z.infer<typeof transactionSchema>;
-
-interface TransactionDrawerProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: "Nova Transação" | "Editar Transação";
-  onConcluir?: (data: {
-    nome: string;
-    valor: string;
-    tipo: string;
-    categoria: string;
-    data: Date | undefined;
-    attachment?: File | string | null;
-  }) => void;
-  initialData?: {
-    nome?: string;
-    valor?: string;
-    tipo?: string;
-    categoria?: string;
-    data?: Date | undefined;
-    attachment?: File | string | null;
-  };
-}
-
-export function TransactionDrawer({
-  open,
-  onOpenChange,
-  title,
-  onConcluir,
-  initialData,
-}: TransactionDrawerProps) {
+export function TransactionDrawer() {
+  const dispatch = useDispatch<AppDispatch>();
   const isMobile = useIsMobile();
 
-  const normalizeType = (type: string | undefined): string => {
-    if (!type) return "";
-    return type.toLowerCase();
-  };
+  const {
+    isOpen,
+    isEditing,
+    nome,
+    valor,
+    tipo,
+    categoria,
+    categoriasSelecionadas,
+    data,
+    anexo,
+    errors,
+    touched,
+    customCategoriesLoadedRef,
+  } = useSelector((state: RootState) => state.transaction);
 
-  const [nome, setNome] = useState<string>("");
-  const [valor, setValor] = useState<string>("");
-  const [tipo, setTipo] = useState<string>("");
-  const [categoria, setCategoria] = useState<string>("");
-  const [anexo, setAnexo] = useState<File | string | null>(null);
-  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<
-    string[]
-  >([]);
-  const [data, setData] = useState<Date | undefined>(undefined);
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof TransactionFormData, string>>
-  >({});
-  const [touched, setTouched] = useState<
-    Partial<Record<keyof TransactionFormData, boolean>>
-  >({});
-
-  const [mounted, setMounted] = useState(false);
-  const [customCategoriesLoaded, setCustomCategoriesLoaded] = useState(0);
+  const title = isEditing ? "Editar Transação" : "Nova Transação";
 
   const defaultCategories: MultiSelectOption[] = useMemo(
     () => [
@@ -136,7 +107,7 @@ export function TransactionDrawer({
       label: cat.label,
       color: cat.color,
     }));
-  }, [customCategoriesLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [customCategoriesLoadedRef]);
 
   const categoriaOptions: MultiSelectOption[] = useMemo(() => {
     return [...defaultCategories, ...customCategories];
@@ -145,269 +116,26 @@ export function TransactionDrawer({
   const allCategoryColors = useMemo(() => {
     const customColors = loadCustomCategoryColors();
     return { ...CATEGORY_COLORS, ...customColors };
-  }, []);
+  }, [customCategoriesLoadedRef]);
 
-  const getCategoryColorForLabel = useCallback(
-    (label: string): string | undefined => {
-      if (allCategoryColors[label]) {
-        return allCategoryColors[label];
-      }
-
-      const customCat = loadCustomCategories().find(
-        (cat) => cat.label.toLowerCase() === label.toLowerCase()
-      );
-      if (customCat?.color) {
-        return customCat.color;
-      }
-
-      const DEFAULT_COLORS = [
-        "bg-green-500",
-        "bg-blue-500",
-        "bg-purple-500",
-        "bg-pink-500",
-        "bg-red-500",
-        "bg-orange-500",
-        "bg-yellow-500",
-        "bg-teal-500",
-        "bg-cyan-500",
-        "bg-indigo-500",
-        "bg-violet-500",
-        "bg-emerald-500",
-        "bg-lime-500",
-        "bg-amber-500",
-        "bg-red-600",
-        "bg-blue-600",
-        "bg-purple-600",
-        "bg-pink-600",
-      ];
-
-      const hash = label
-        .split("")
-        .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const selectedColor = DEFAULT_COLORS[hash % DEFAULT_COLORS.length];
-
-      return selectedColor;
-    },
-    [allCategoryColors]
-  );
-
-  const getCategoriaValueForMultiSelect = useCallback(
-    (categoriaString: string): string[] => {
-      if (!categoriaString) return [];
-
-      const opcao = categoriaOptions.find(
-        (opt) => opt.label.toLowerCase() === categoriaString.toLowerCase()
-      );
-
-      if (opcao) return [opcao.value];
-
-      const normalizedValue = normalizeCategoryValue(categoriaString);
-
-      const existsInCustom = customCategories.some(
-        (cat) => cat.label.toLowerCase() === categoriaString.toLowerCase()
-      );
-
-      if (!existsInCustom && categoriaString.trim()) {
-        const newCustomCategory: CustomCategory = {
-          value: normalizedValue,
-          label: categoriaString.trim(),
-        };
-        addCustomCategory(newCustomCategory);
-      }
-
-      return [normalizedValue];
-    },
-    [categoriaOptions, customCategories]
-  );
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-
-    if (initialData) {
-      setNome(initialData.nome || "");
-      setValor(initialData.valor || "");
-      setTipo(normalizeType(initialData.tipo));
-      const categoriaInicial = initialData.categoria || "";
-      setCategoria(categoriaInicial);
-      setCategoriasSelecionadas(
-        getCategoriaValueForMultiSelect(categoriaInicial)
-      );
-      setData(initialData.data);
-      setAnexo(initialData.attachment || null);
-      setErrors({});
-      setTouched({});
-    } else if (open && title === "Nova Transação") {
-      setNome("");
-      setValor("");
-      setTipo("");
-      setCategoria("");
-      setCategoriasSelecionadas([]);
-      setData(undefined);
-      setAnexo(null);
-      setErrors({});
-      setTouched({});
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      dispatch(closeDrawer());
+      window.dispatchEvent(new CustomEvent("@FIAP/CLOSE_TRANSACTION_DRAWER"));
     }
-  }, [initialData, mounted, open, title, getCategoriaValueForMultiSelect]);
-
-  const validateForm = (): boolean => {
-    const fieldErrors: Partial<Record<keyof TransactionFormData, string>> = {};
-
-    if (!nome || nome.trim() === "") {
-      fieldErrors.nome = "O nome é obrigatório";
-    }
-
-    if (!valor || valor.trim() === "") {
-      fieldErrors.valor = "O valor é obrigatório";
-    } else {
-      const numValue = parseFloat(valor.replace(",", "."));
-      if (isNaN(numValue) || numValue <= 0) {
-        fieldErrors.valor = "O valor deve ser um número maior que zero";
-      }
-    }
-
-    if (!tipo || tipo.trim() === "") {
-      fieldErrors.tipo = "O tipo é obrigatório";
-    } else if (tipo !== "receita" && tipo !== "despesa") {
-      fieldErrors.tipo = "O tipo é obrigatório";
-    }
-
-    if (!categoria || categoria.trim() === "") {
-      fieldErrors.categoria = "A categoria é obrigatória";
-    }
-
-    if (categoriasSelecionadas.length === 0) {
-      fieldErrors.categoria = "A categoria é obrigatória";
-    }
-
-    if (!data) {
-      fieldErrors.data = "A data é obrigatória";
-    }
-
-    if (Object.keys(fieldErrors).length > 0) {
-      setErrors(fieldErrors);
-      setTouched({
-        nome: true,
-        valor: true,
-        tipo: true,
-        categoria: true,
-        data: true,
-      });
-      return false;
-    }
-
-    setErrors({});
-    return true;
-  };
-
-  const handleConcluirTransacao = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    const categoriaFinal = categoria.trim();
-
-    const isDefaultCategory = defaultCategories.some(
-      (cat) => cat.label.toLowerCase() === categoriaFinal.toLowerCase()
-    );
-
-    if (!isDefaultCategory && categoriaFinal) {
-      const normalizedValue = normalizeCategoryValue(categoriaFinal);
-
-      const existsInCustom = loadCustomCategories().some(
-        (cat) => cat.label.toLowerCase() === categoriaFinal.toLowerCase()
-      );
-
-      if (!existsInCustom) {
-        const categoryColor = getCategoryColorForLabel(categoriaFinal);
-
-        const newCustomCategory: CustomCategory = {
-          value: normalizedValue,
-          label: categoriaFinal,
-          color: categoryColor,
-        };
-        addCustomCategory(newCustomCategory);
-
-        if (categoryColor) {
-          saveCustomCategoryColor(categoriaFinal, categoryColor);
-        }
-
-        setCustomCategoriesLoaded((prev) => prev + 1);
-      } else {
-        const existingCustom = loadCustomCategories().find(
-          (cat) => cat.label.toLowerCase() === categoriaFinal.toLowerCase()
-        );
-
-        const categoryColor = getCategoryColorForLabel(categoriaFinal);
-
-        if (
-          categoryColor &&
-          existingCustom &&
-          existingCustom.color !== categoryColor
-        ) {
-          saveCustomCategoryColor(categoriaFinal, categoryColor);
-
-          const updatedCategories = loadCustomCategories().map((cat) =>
-            cat.label.toLowerCase() === categoriaFinal.toLowerCase()
-              ? { ...cat, color: categoryColor }
-              : cat
-          );
-          saveCustomCategories(updatedCategories);
-          setCustomCategoriesLoaded((prev) => prev + 1);
-        }
-      }
-    }
-
-    let anexoProcessed: string | File | null | undefined = anexo;
-
-    if (anexo && anexo instanceof File) {
-      try {
-        anexoProcessed = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(anexo);
-        });
-      } catch (error) {
-        console.error("Erro ao processar anexo:", error);
-      }
-    }
-
-    if (onConcluir) {
-      onConcluir({
-        nome: nome.trim(),
-        valor: valor.trim(),
-        tipo,
-        categoria: categoriaFinal,
-        data,
-        attachment: anexoProcessed,
-      });
-    }
-    handleCancelar();
   };
 
   const handleCancelar = () => {
-    onOpenChange(false);
-    if (title === "Nova Transação") {
-      setNome("");
-      setValor("");
-      setTipo("");
-      setCategoria("");
-      setCategoriasSelecionadas([]);
-      setData(undefined);
-      setAnexo(null);
-    }
+    dispatch(closeDrawer());
+    window.dispatchEvent(new CustomEvent("@FIAP/CLOSE_TRANSACTION_DRAWER"));
   };
 
   const handleCategoriasChange = (selected: string[]) => {
-    setCategoriasSelecionadas(selected);
+    dispatch(setField({ field: "categoriasSelecionadas", value: selected }));
     const primeiraCategoria = selected.length > 0 ? selected[0] : "";
 
     if (!primeiraCategoria) {
-      setCategoria("");
+      dispatch(setField({ field: "categoria", value: "" }));
       return;
     }
 
@@ -416,65 +144,108 @@ export function TransactionDrawer({
     );
 
     if (!opcaoSelecionada) {
-      const customCat = loadCustomCategories().find(
-        (cat) => cat.value === primeiraCategoria
+      const customCat = customCategories.find(
+        (c) => c.value === primeiraCategoria
       );
-
       if (customCat) {
-        opcaoSelecionada = {
-          value: customCat.value,
-          label: customCat.label,
-          color: customCat.color,
-        };
+        dispatch(setField({ field: "categoria", value: customCat.label }));
       } else {
         const defaultCat = defaultCategories.find(
-          (cat) => cat.value === primeiraCategoria
+          (c) => c.value === primeiraCategoria
         );
-
         if (defaultCat) {
-          opcaoSelecionada = defaultCat;
+          dispatch(setField({ field: "categoria", value: defaultCat.label }));
         } else {
           const categoryLabel = primeiraCategoria
             .split("-")
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
-
-          opcaoSelecionada = {
-            value: primeiraCategoria,
-            label: categoryLabel,
-          };
+          dispatch(setField({ field: "categoria", value: categoryLabel }));
         }
       }
+    } else {
+      dispatch(setField({ field: "categoria", value: opcaoSelecionada.label }));
     }
 
-    const categoriaLabel = opcaoSelecionada
-      ? opcaoSelecionada.label
-      : primeiraCategoria;
+    dispatch(setTouched({ categoria: true }));
+    if (errors.categoria) {
+      const newErrors = { ...errors };
+      delete newErrors.categoria;
+      dispatch(setErrors(newErrors));
+    }
+  };
 
-    setCategoria(categoriaLabel);
-    setTouched((prev) => ({ ...prev, categoria: true }));
-    if (touched.categoria && errors.categoria) {
-      setErrors((prev) => ({ ...prev, categoria: undefined }));
+  const validateForm = (): boolean => {
+    const formData = {
+      nome,
+      valor,
+      tipo,
+      categoria,
+      data: data ? new Date(data) : undefined,
+    };
+
+    const result = transactionSchema.safeParse(formData);
+
+    if (!result.success) {
+      const newErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+      });
+
+      if (categoriasSelecionadas.length === 0) {
+        newErrors.categoria = "A categoria é obrigatória";
+      }
+
+      dispatch(setErrors(newErrors));
+      dispatch(
+        setTouched({
+          nome: true,
+          valor: true,
+          tipo: true,
+          categoria: true,
+          data: true,
+        })
+      );
+      return false;
+    }
+
+    if (categoriasSelecionadas.length === 0) {
+      dispatch(
+        setErrors({ ...errors, categoria: "A categoria é obrigatória" })
+      );
+      dispatch(setTouched({ ...touched, categoria: true }));
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleConcluirTransacao = () => {
+    if (validateForm()) {
+      dispatch(saveTransaction());
     }
   };
 
   return (
     <Drawer
-      open={open}
-      onOpenChange={onOpenChange}
+      open={isOpen}
+      onOpenChange={handleOpenChange}
       direction={isMobile ? "bottom" : "right"}
     >
       <DrawerContent>
         <DrawerHeader className="gap-1">
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription>
-            {title === "Nova Transação"
-              ? "Preencha os dados da nova transação"
-              : "Detalhes da transação"}
+            {isEditing
+              ? "Detalhes da transação"
+              : "Preencha os dados da nova transação"}
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex flex-col gap-4 overflow-y-auto px-4 py-4 pb-6">
-          <form className="flex flex-col gap-4">
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => e.preventDefault()}
+          >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-3">
                 <Label htmlFor="nome">Nome</Label>
@@ -484,17 +255,20 @@ export function TransactionDrawer({
                   placeholder="Digite o nome"
                   value={nome}
                   onChange={(e) => {
-                    setNome(e.target.value);
+                    dispatch(
+                      setField({ field: "nome", value: e.target.value })
+                    );
                     if (touched.nome && errors.nome) {
-                      setErrors((prev) => ({ ...prev, nome: undefined }));
+                      const e = { ...errors };
+                      delete e.nome;
+                      dispatch(setErrors(e));
                     }
                   }}
-                  onBlur={() => setTouched((prev) => ({ ...prev, nome: true }))}
+                  onBlur={() => dispatch(setTouched({ nome: true }))}
                   aria-invalid={errors.nome ? true : undefined}
-                  aria-describedby={errors.nome ? "nome-error" : undefined}
                 />
                 {(touched.nome || errors.nome) && errors.nome && (
-                  <span id="nome-error" className="text-sm text-destructive">
+                  <span className="text-sm text-destructive">
                     {errors.nome}
                   </span>
                 )}
@@ -508,19 +282,20 @@ export function TransactionDrawer({
                   placeholder="0,00"
                   value={valor}
                   onChange={(e) => {
-                    setValor(e.target.value);
+                    dispatch(
+                      setField({ field: "valor", value: e.target.value })
+                    );
                     if (touched.valor && errors.valor) {
-                      setErrors((prev) => ({ ...prev, valor: undefined }));
+                      const e = { ...errors };
+                      delete e.valor;
+                      dispatch(setErrors(e));
                     }
                   }}
-                  onBlur={() =>
-                    setTouched((prev) => ({ ...prev, valor: true }))
-                  }
+                  onBlur={() => dispatch(setTouched({ valor: true }))}
                   aria-invalid={errors.valor ? true : undefined}
-                  aria-describedby={errors.valor ? "valor-error" : undefined}
                 />
                 {(touched.valor || errors.valor) && errors.valor && (
-                  <span id="valor-error" className="text-sm text-destructive">
+                  <span className="text-sm text-destructive">
                     {errors.valor}
                   </span>
                 )}
@@ -529,13 +304,20 @@ export function TransactionDrawer({
 
             <div className="flex flex-col gap-3">
               <DatePicker
-                value={data}
+                value={data ? new Date(data) : undefined}
                 onValueChange={(value) => {
-                  setData(value);
+                  dispatch(
+                    setField({
+                      field: "data",
+                      value: value ? value.toISOString() : undefined,
+                    })
+                  );
                   if (touched.data && errors.data) {
-                    setErrors((prev) => ({ ...prev, data: undefined }));
+                    const e = { ...errors };
+                    delete e.data;
+                    dispatch(setErrors(e));
                   }
-                  setTouched((prev) => ({ ...prev, data: true }));
+                  dispatch(setTouched({ data: true }));
                 }}
                 label="Data"
                 placeholder="Selecione a data"
@@ -566,9 +348,9 @@ export function TransactionDrawer({
                 singleSelect={true}
                 colorMap={allCategoryColors}
                 defaultOptions={customCategories}
-              />{" "}
+              />
               {(touched.categoria || errors.categoria) && errors.categoria && (
-                <span id="categoria-error" className="text-sm text-destructive">
+                <span className="text-sm text-destructive">
                   {errors.categoria}
                 </span>
               )}
@@ -579,22 +361,21 @@ export function TransactionDrawer({
               <Select
                 value={tipo}
                 onValueChange={(value) => {
-                  setTipo(value);
-                  setTouched((prev) => ({ ...prev, tipo: true }));
+                  dispatch(setField({ field: "tipo", value: value }));
+                  dispatch(setTouched({ tipo: true }));
                   if (touched.tipo && errors.tipo) {
-                    setErrors((prev) => ({ ...prev, tipo: undefined }));
+                    const e = { ...errors };
+                    delete e.tipo;
+                    dispatch(setErrors(e));
                   }
                 }}
               >
                 <SelectTrigger
-                  id="tipo"
                   className={`w-full ${
                     (touched.tipo || errors.tipo) && errors.tipo
                       ? "!border-destructive"
                       : ""
                   }`}
-                  aria-invalid={errors.tipo ? true : undefined}
-                  aria-describedby={errors.tipo ? "tipo-error" : undefined}
                 >
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
@@ -604,22 +385,25 @@ export function TransactionDrawer({
                 </SelectContent>
               </Select>
               {(touched.tipo || errors.tipo) && errors.tipo && (
-                <span id="tipo-error" className="text-sm text-destructive">
-                  {errors.tipo}
-                </span>
+                <span className="text-sm text-destructive">{errors.tipo}</span>
               )}
             </div>
 
-            <AttachmentInput value={anexo} onChange={setAnexo} />
+            <AttachmentInput
+              value={anexo}
+              onChange={(file) =>
+                dispatch(setField({ field: "anexo", value: file }))
+              }
+            />
           </form>
         </div>
         <DrawerFooter>
           <Button onClick={handleConcluirTransacao}>
-            {title === "Nova Transação" ? "Concluir transação" : "Salvar"}
+            {isEditing ? "Salvar" : "Concluir transação"}
           </Button>
           <DrawerClose asChild>
             <Button variant="outline" onClick={handleCancelar}>
-              {title === "Nova Transação" ? "Cancelar" : "Fechar"}
+              {isEditing ? "Fechar" : "Cancelar"}
             </Button>
           </DrawerClose>
         </DrawerFooter>
