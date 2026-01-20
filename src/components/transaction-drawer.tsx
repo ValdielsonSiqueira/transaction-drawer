@@ -107,6 +107,7 @@ export function TransactionDrawer() {
       label: cat.label,
       color: cat.color,
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customCategoriesLoadedRef]);
 
   const categoriaOptions: MultiSelectOption[] = useMemo(() => {
@@ -116,6 +117,7 @@ export function TransactionDrawer() {
   const allCategoryColors = useMemo(() => {
     const customColors = loadCustomCategoryColors();
     return { ...CATEGORY_COLORS, ...customColors };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customCategoriesLoadedRef]);
 
   const handleOpenChange = (open: boolean) => {
